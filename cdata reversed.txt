@@ -1,0 +1,88 @@
+{
+  "character_map": {
+    "1111853120": "Caustic",
+    "1409694078": "Lifeline",
+    "1464849662": "Pathfinder",
+    "182221730": "Gibraltar",
+    "2045656322": "Mirage",
+    "725342087": "Bangalore",
+    "827049897": "Wraith",
+    "898565421": "Bloodhound"
+  },
+  "legend_stats": {
+    "Bangalore": {
+      "1031439873": "wins_with_full_squad",
+      "1062566391": "double_time_distance",
+      "1218507142": "smoke_grenade_enemies_hit",
+      "1404343849": "sniper_kills",
+      "1454765265": "headshots",
+      "1561856843": "kills_as_kill_leader",
+      "156609670": "creeping_barrage_damage",
+      "159674464": "executions",
+      "1712819508": "revives",
+      "1814522143": "kills",
+      "1913031309": "ar_kills",
+      "2019682590": "winning_kills",
+      "278004241": "games_played",
+      "386848081": "pistol_kills",
+      "445985781": "care_package_kills",
+      "486927953": "top_3",
+      "713918432": "lmg_kills",
+      "833459246": "damage",
+      "997037285": "shotgun_kills"
+    },
+    "Bloodhound": {
+      "1049917798": "kills",
+      "1469728535": "damage",
+      "888240106": "wins_with_full_squad"
+    },
+    "Caustic": {
+      "15753331": "kills",
+      "79320088": "games_played"
+    },
+    "Gibraltar": {
+      "345008354": "kills"
+    },
+    "Lifeline": {
+      "1000524603": "care_package_kills",
+      "1010955107": "executions",
+      "1013667227": "doc_drone_healing",
+      "1049919818": "pistol_kills",
+      "1436290069": "lmg_kills",
+      "1447295346": "damage",
+      "1503453708": "games_played",
+      "1509839340": "kills",
+      "1676898271": "winning_kills",
+      "172943936": "kills_as_kill_leader",
+      "1758696453": "ar_kills",
+      "1768041931": "dropped_items_for_squadmates",
+      "1807836495": "smg_kills",
+      "2091825336": "shotgun_kills",
+      "31935871": "wins_with_full_squad",
+      "3941687": "revive_shield_damage_blocked",
+      "53059952": "revives",
+      "692891435": "top_3",
+      "704985961": "sniper_kills",
+      "927222661": "headshots"
+    },
+    "Mirage": {
+      "1730527550": "kills"
+    },
+    "Pathfinder": {
+      "196161681": "kills"
+    },
+    "Wraith": {
+      "1029543241": "wins_with_full_squad",
+      "1081609860": "damage",
+      "1460730151": "lmg_kills",
+      "1618935778": "kills",
+      "1790559237": "pistol_kills",
+      "1932917010": "games_played",
+      "1955189012": "executions",
+      "218650152": "kills_as_kill_leader",
+      "219040158": "winning_kills",
+      "252848455": "headshots",
+      "553648221": "smg_kills"
+    }
+  }
+}

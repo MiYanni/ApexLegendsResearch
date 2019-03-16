@@ -1,0 +1,5 @@
+curl --location --request POST "https://r5-pc.stryder.respawn.com/user.php?qt=privacy-update&setPrivacy=0&hardware=PC&uid=YOURUIDHEREFORSTATSRETRIEVAL&pid=22312328012" \
+  --header "User-Agent: Respawn HTTPS/1.0" \
+  --form "NucleusToken=*..." \
+  --form "securityToken=Wftz...=" \
+  --form "env=production"

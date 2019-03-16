@@ -1,0 +1,2 @@
+curl --location --request POST "https://r5-pc.stryder.respawn.com/user.php?qt=user-getinfo&getinfo=1&hardware=PC&uid=IDUSER&language=english&timezoneOffset=1&ugc=1&rep=1&searching=0&change=7&loadidx=1" \
+  --header "User-Agent: Respawn HTTPS/1.0" \

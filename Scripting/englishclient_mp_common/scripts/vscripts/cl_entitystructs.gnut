@@ -1,0 +1,221 @@
+global struct TitanBindings
+{
+	void functionref( entity ) PlayerPressed_Eject
+	void functionref( entity ) PlayerPressed_EjectEnable
+}
+
+global struct SegmentedHealthBar
+{
+	var healthBarAnchor
+	var healthBarParent
+	var healthBar
+	var healthBarBack
+	var healthBarDoomed
+}
+
+global struct BurnMeterHudStruct //
+{
+	var burnMeterProgressBar
+	var burnMeterRewardTypeIcon
+	var burnMeterLabel
+	int burnMeterRewardID
+	float burnMeterRewardProgress
+}
+
+
+//
+global struct ClientEntityStruct
+{
+	EHIScriptStruct& ehiss
+
+	//
+	entity mainVGUI
+	entity body
+
+	//
+	var rodeoAlertIcon
+	var rodeoAlertLabel
+	var safeArea
+	var safeAreaCenter
+	var screen
+
+	var missileImpactLabel
+	var rodeoLabel
+	var rebootTimer
+
+	var overheadRui
+
+	table<string,AnimEventData> animEventDataForEntity
+	array emergencyIcons
+	array emergencyRings
+
+	//
+	bool ammoSwapPlaying = false
+	bool gunShieldActive = false
+
+	float localPingBeginTime = -999.0
+	int predictedUseCount = 0
+	bool predictedUseSuccess = true
+
+	float lastVocalizedCommsTime = -999.0
+
+	array<DamageHistoryStruct> recentDamageHistory
+	string functionref( entity ent ) entTextOverrideCallback
+
+	bool functionref( entity player, entity ent ) canUseEntityCallback = null
+
+	array<void functionref( entity ent, entity player, int useInputType )> onUseEntityCallbacks
+	array<void functionref( entity vehicle )> onVehicleLaunchCallbacks
+	array<void functionref( entity vehicle )> onVehicleCollideCallbacks
+	array<void functionref( entity vehicle )> onPlayerUseButtonPressed
+	array<void functionref( entity vehicle )> onPlayerUseButtonReleased
+	array<void functionref( entity )> onEntityDestroyedCallbacks
+
+	string enemyHighlight = ""
+
+	float lastUseTime
+	bool isBusy
+
+	int __itemFlavorNetworkId
+
+	bool canBeMeleed = true
+}
+
+
+global struct TitanCockpitRUI
+{
+	var rui
+	int drawGroup = RUI_DRAW_COCKPIT
+}
+
+
+//
+global struct ClientPlayerStruct
+{
+	entity rodeoBatteryCrosshairEntity
+	BurnMeterHudStruct[ 1 ] burnMeterHudStructs
+
+	float grenadePulloutTime
+
+	//
+	bool isDisembarking = false
+
+	float disembarkPressTime
+	float ejectEnableTime
+	float ejectPressTime
+	int ejectPressCount
+	bool playerScriptsInitialized
+
+	int smartCoreKills = 0
+
+	entity previousWeapon
+
+	entity knife = null
+
+	bool pilotEjecting = false
+
+	float nextAllowWarningTime = 0.0
+
+	entity previousRiderEnt = null
+	bool allowCoreMessages = true
+
+	string sayLineLatestSound
+	float sayLineLatestTime = -99.0
+	int lastSaidCommsAction
+	int lastCanceledCommsAction
+	table<int,float> commActionFlavorDebounceTimes
+	float commActionFlavorGlobalDebounceTime = -30.0
+
+	array<TitanCockpitRUI> titanCockpitRUIs
+	#if(false)
+
+#endif
+	bool isInExtendedUse = false
+	table<string,int> requiredLootTypes = {}
+
+	string lastEventNotificationText
+
+	entity TEMP_lastMeleeInputWeapon = null
+
+	int mapPingTicketID = -1
+
+	array<int> freefallContrailFXHandles
+	int freefallWindEffectHandle = -1
+}
+
+
+
+//
+global struct ClientAIStruct
+{
+	int gruntVoiceIndex = 0
+}
+
+
+
+//
+global struct ClientWeaponStruct
+{
+	float startChargeTime = 0.0
+	bool wasCharged = false
+	bool initialized = false
+	#if(false)
+
+#endif
+
+	entity weaponOwner
+	array<int> statusEffects
+	float lastFireTime
+
+	float PROTO_lastFireAttemptTime = -1.0
+}
+
+
+//
+global struct ClientProjectileStruct
+{
+	vector savedDir
+	float savedShotTime
+	int projectileBounceCount = 0
+
+	#if(false)
+
+
+#endif
+}
+
+
+//
+global struct ClientTitanSoulStruct
+{
+	bool titanUpgradesAnnounced = false
+	entity lastOwner
+	int upgradeCount = 0
+}
+
+
+//
+global struct ClientPlayerDecoyStruct
+{
+	array<int> particleIndexes
+	bool decoyHasStealthPassive = false
+}
+
+//
+global struct ClientPlayerWaypoint
+{
+	var ruiMinimap
+	var ruiFullmap
+	var ruiHud
+
+	array<int> fxHandles
+
+	bool haveConfirmed
+
+	entity highlightEnt
+}
+
+global struct ClientFirstPersonProxyStruct
+{
+	entity battery
+}

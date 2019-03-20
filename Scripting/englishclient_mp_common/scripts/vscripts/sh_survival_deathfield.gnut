@@ -1,0 +1,1853 @@
+global function Sh_ArenaDeathField_Init
+global function GetDeathFieldStage
+global function SURVIVAL_GetDeathField
+
+#if(false)
+
+
+
+#endif
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+#if(CLIENT)
+global function ServerCallback_Survival_PathfinderSurveyNotifications
+global function ServerCallback_Survival_CreateBeaconWorldIcon
+global function SURVIVAL_AddCallback_OnDeathFieldStartShrink
+global function SURVIVAL_AddCallback_OnDeathFieldStopShrink
+global function UpdateSurveyBeaconHint
+#endif
+
+global function SURVIVAL_DeathFieldIsValid
+global function SURVIVAL_GetDeathFieldCenter
+global function SURVIVAL_GetDeathFieldCurrentRadius
+global function SURVIVAL_GetCurrentDeathFieldStage
+global function SURVIVAL_GetCurrentRoundString
+global function SURVIVAL_IsFinalDeathFieldStage
+
+global function AddCallback_OnSurvivalDeathFieldStageChanged
+global function RemoveCallback_OnSurvivalDeathFieldStageChanged
+
+#if(CLIENT)
+table < float, string > distanceToSound =
+{
+	[ 17000.0 ] = "Survival_Circle_Edge_Large",
+	[ 4000.0 ] = "Survival_Circle_Edge_Medium",
+	[ 0.0 ] = "Survival_Circle_Edge_Small",
+}
+#endif
+
+const asset DEATHFIELD_EFFECT = $"P_ring_FP_hit_01"
+const string COLOR_CORRECTION = "materials/correction/outside_ring.raw_hdr"
+
+global const float REALBIG_CIRCLE_END_RADIUS = 45000
+global const float REALBIG_CIRCLE_END_RADIUS_SQ = REALBIG_CIRCLE_END_RADIUS * REALBIG_CIRCLE_END_RADIUS
+
+global const float REALBIG_CIRCLE_END_RADIUS_SMALL_INNER = 15000
+global const float REALBIG_CIRCLE_END_RADIUS_SMALL_OUTER = 20000
+
+global const string FINAL_ROUND_ALIAS_SUFFIX = "Final"
+
+global enum ePathfinderNotifications
+{
+	TEAM_SUCCESS
+	NOT_PATHFINDER
+	ALREADY_USED
+	ALREADY_ACTIVE
+}
+
+const float START_WAIT_TIME = 5.0
+const float MARGIN_WAIT_TIME = 5.0
+const asset SURVEY_BEACON_MODEL = $"mdl/props/pathfinder_beacon_radar/pathfinder_beacon_radar_animated.rmdl"
+
+global struct DeathFieldData
+{
+	vector center = <0, 0, 0>
+	vector nextCenter = <0, 0, 0>
+
+	float currentRadius = 40000.0
+	float startRadius = 40000.0
+	float endRadius = 40000.0
+	float startTime = 10.0
+	float endTime = 30.0
+
+	float percentDamagePerTick = 0.2
+}
+
+global struct DeathFieldStageData
+{
+	float  endRadius
+	float  shrinkDuration
+	float  preShrinkDuration
+	float  percentDamagePerTick = 0.2
+	vector endPos
+}
+
+struct
+{
+	#if(false)
+
+
+
+
+#endif
+
+	DeathFieldData             deathFieldData
+	array<DeathFieldStageData> deathFieldStages
+	array<entity>              surveyMinimapEnts
+	array<entity>              surveyBeacons
+	int                        deathFieldStartStage
+	entity                     deathField
+	entity                     safeZone
+
+	#if(CLIENT)
+		array< void functionref ( DeathFieldStageData ) > ClientCallbacks_OnDeathFieldStartShrink
+		array< void functionref ( DeathFieldStageData ) > ClientCallbacks_OnDeathFieldStopShrink
+		table<entity, var>                                pathfinderWorldIcons
+		int                                               colorCorrection
+		float                                             nextHolsterHintTime
+	#endif
+
+	array<void functionref( int stage, float nextCircleStartTime )> onSurvivalDeathFieldStageChangedCallbacks
+} file
+
+void function Sh_ArenaDeathField_Init()
+{
+	PrecacheParticleSystem( $"P_survival_radius_CP_1x1" )
+	PrecacheParticleSystem( $"P_survival_radius_CP_1x5" )
+	PrecacheParticleSystem( $"P_survival_radius_CP_1x100" )
+	PrecacheParticleSystem( $"P_ring_FP_hit_01" )
+
+	RegisterSignal( "NewDeathFieldStarting" )
+
+	#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+	GenerateDeathFieldStageData()
+
+	file.deathFieldStartStage = GetCurrentPlaylistVarInt( "survival_death_field_start_stage", 0 )
+	if ( file.deathFieldStartStage >= file.deathFieldStages.len() )
+		file.deathFieldStartStage = file.deathFieldStages.len()
+
+	file.deathFieldData.currentRadius = 65000.0
+	file.deathFieldData.startRadius = 65000.0
+	file.deathFieldData.endRadius = 65000.0
+
+	if ( file.deathFieldStartStage > 0 )
+	{
+		float r = file.deathFieldStages[file.deathFieldStartStage - 1].endRadius
+		file.deathFieldData.currentRadius = r
+		file.deathFieldData.startRadius = r
+		file.deathFieldData.endRadius = r
+	}
+
+	#if(CLIENT)
+		file.colorCorrection = ColorCorrection_Register( COLOR_CORRECTION )
+
+		AddCreateCallback( "prop_script", OnPropScriptCreated )
+		AddCreateCallback( "prop_dynamic", OnPropDynamicCreated )
+
+		AddCreatePilotCockpitCallback( TrackDeathfieldDistance )
+		AddLocalPlayerTookDamageTypeCallback( eDamageSourceId.outOfBounds, Callback_OnPlayerTakeOutOfBoundDamage )
+	#endif
+}
+
+
+DeathFieldStageData function GetDeathFieldStage( int index )
+{
+	return file.deathFieldStages[ index ]
+}
+
+
+void function GenerateDeathFieldStageData()
+{
+	int i = 0
+	while ( 1 )
+	{
+		float radius = GetCurrentPlaylistVarFloat( "deathfield_radius_" + i, -1 )
+		if ( radius < 0 )
+			break
+
+		file.deathFieldStages.append( CreateDeathFieldStageData( i++ ) )
+	}
+}
+
+
+DeathFieldStageData function CreateDeathFieldStageData( int index )
+{
+	float lastRadius = file.deathFieldData.currentRadius
+	if ( file.deathFieldStages.len() > 0 )
+	{
+		lastRadius = file.deathFieldStages[ file.deathFieldStages.len() - 1 ].endRadius
+	}
+
+	bool circleDebug = GetBugReproNum() == 1001
+
+	int currentIndex = file.deathFieldStages.len()
+
+	float defaultSpeed     = GetCurrentPlaylistVarFloat( "deathfield_default_shrinkSpeed", 140 )
+	float shrinkSpeed      = GetCurrentPlaylistVarFloat( "deathfield_shrinkSpeed_" + index, -1 )
+	float circleCloseSpeed = shrinkSpeed > 0 ? shrinkSpeed : defaultSpeed //
+
+	DeathFieldStageData data
+	data.endRadius = GetCurrentPlaylistVarFloat( "deathfield_radius_" + index, -1 )
+	data.preShrinkDuration = GetCurrentPlaylistVarFloat( "deathfield_preShrinkDuration_" + index, -1 )
+	data.shrinkDuration = ((lastRadius - data.endRadius) / circleCloseSpeed)
+	data.percentDamagePerTick = GetCurrentPlaylistVarFloat( "deathfield_damagePercent_" + index, -1 )
+
+	Assert( data.endRadius > 0 )
+	Assert( data.preShrinkDuration > 0 )
+	Assert( data.shrinkDuration > 0 )
+	Assert( data.percentDamagePerTick >= 0 )
+
+	if ( circleDebug )
+	{
+		data.preShrinkDuration = 10.0
+	}
+
+	return data
+}
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+
+
+
+
+*/
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+//
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+#if(CLIENT)
+void function SURVIVAL_AddCallback_OnDeathFieldStartShrink( void functionref( DeathFieldStageData ) callbackFunc )
+{
+	Assert( !file.ClientCallbacks_OnDeathFieldStartShrink.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with SURVIVAL_AddCallback_OnDeathFieldStartShrink" )
+	file.ClientCallbacks_OnDeathFieldStartShrink.append( callbackFunc )
+}
+
+void function SURVIVAL_AddCallback_OnDeathFieldStopShrink( void functionref( DeathFieldStageData ) callbackFunc )
+{
+	Assert( !file.ClientCallbacks_OnDeathFieldStopShrink.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with SURVIVAL_AddCallback_OnDeathFieldStopShrink" )
+	file.ClientCallbacks_OnDeathFieldStopShrink.append( callbackFunc )
+}
+
+
+void function UpdateSurveyBeaconHint()
+{
+	entity player = GetLocalViewPlayer()
+	if ( !player.HasPassive( ePassives.PAS_PATHFINDER ) )
+		RemoveMapFeatureItemByName( "#SURVEY_BEACON" )
+	else
+		SetMapFeatureItem( 100, "#SURVEY_BEACON", "#SURVEY_BEACON_DESC", $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder" )
+}
+
+
+void function OnPropDynamicCreated( entity prop )
+{
+	string modelName = prop.GetModelName()
+	if ( modelName == SURVEY_BEACON_MODEL )
+	{
+		CreateCallback_Panel( prop )
+		ClearCallback_CanUseEntityCallback( prop )
+		SetCallback_CanUseEntityCallback( prop, SurveyBeacon_CanUseFunction )
+	}
+	else if ( modelName == "mdl/fx/bb_shield.rmdl" )
+	{
+		Chroma_OnBubbleShieldCreated( prop )
+	}
+}
+
+void function OnPropScriptCreated( entity prop )
+{
+	if ( prop.GetTargetName() == "surveyZone" )
+	{
+		file.surveyMinimapEnts.append( prop )
+		AddEntityDestroyedCallback( prop, SurveyZoneCleanupOnDestroy )
+	}
+
+	if ( prop.GetTargetName() == "deathField" )
+	{
+		file.deathField = prop
+		thread Cl_DeathFieldThink( prop )
+
+		var rui = ClGameState_GetRui()
+		RuiTrackFloat3( rui, "deathFieldOrigin", prop, RUI_TRACK_ABSORIGIN_FOLLOW )
+	}
+
+	if ( prop.GetTargetName() == "safeZone" )
+	{
+		file.safeZone = prop
+
+		var rui = ClGameState_GetRui()
+		RuiTrackFloat3( rui, "safeZoneOrigin", prop, RUI_TRACK_ABSORIGIN_FOLLOW )
+	}
+}
+
+void function SurveyZoneCleanupOnDestroy( entity surveyZoneEnt )
+{
+	file.surveyMinimapEnts.fastremovebyvalue( surveyZoneEnt )
+}
+
+void function Cl_DeathFieldThink( entity deathField )
+{
+	deathField.SetDoDestroyCallback( true )
+	deathField.EndSignal( "OnDestroy" )
+
+	int currentEffectIdx = 0
+	array<int> fxIdx     = [ GetParticleSystemIndex( $"P_survival_radius_CP_1x1" ), GetParticleSystemIndex( $"P_survival_radius_CP_1x5" ), GetParticleSystemIndex( $"P_survival_radius_CP_1x100" ) ]
+
+	int effectID = fxIdx[ currentEffectIdx ]
+	int ringFX   = StartParticleEffectOnEntity( deathField, effectID, FX_PATTACH_ABSORIGIN_FOLLOW, -1 )
+
+	table<string, int> e
+	e["fx"] <- ringFX
+
+	float startRadius         = file.deathFieldData.currentRadius
+	entity deathfieldSoundEnt = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", deathField.GetOrigin(), <0, 0, 0> )
+
+	OnThreadEnd(
+		function() : ( e, deathfieldSoundEnt )
+		{
+			deathfieldSoundEnt.Destroy()
+			EffectStop( e["fx"], true, true )
+		}
+	)
+
+	string currentSoundPlaying = ""
+	bool wasMoving             = false
+
+	int currentDeathFieldStage = -1
+	float lastStartTime        = 0.0
+	float lastEndTime          = 0.0
+	while ( 1 )
+	{
+		int stage       = SURVIVAL_GetCurrentDeathFieldStage()
+		float startTime = GetGlobalNetTime( "nextCircleStartTime" ) + MARGIN_WAIT_TIME
+
+		if ( currentDeathFieldStage != stage )
+		{
+			currentDeathFieldStage = stage
+			foreach( void functionref( int, float ) callback in file.onSurvivalDeathFieldStageChangedCallbacks )
+				thread callback( currentDeathFieldStage, startTime )
+		}
+
+		DeathFieldStageData deathFieldData = file.deathFieldStages[stage]
+		if ( stage > 0 )
+		{
+			DeathFieldStageData prevData = file.deathFieldStages[stage - 1]
+			startRadius = prevData.endRadius
+		}
+
+		float duration  = deathFieldData.shrinkDuration
+		float endRadius = deathFieldData.endRadius
+
+		float unclampedFrac = (Time() - startTime) / duration
+		float frac          = clamp( unclampedFrac, 0.0, 1.0 )
+		float radius        = startRadius + ((endRadius - startRadius) * frac)
+
+		if ( Time() >= startTime && lastStartTime < startTime )
+		{
+			//
+
+			//
+			foreach ( void functionref( DeathFieldStageData ) callback in file.ClientCallbacks_OnDeathFieldStartShrink )
+				callback( deathFieldData )
+
+			lastStartTime = startTime
+		}
+
+		if ( Time() >= (startTime + duration) && (startTime + duration) != lastEndTime )
+		{
+			//
+			//
+			foreach ( void functionref( DeathFieldStageData ) callback in file.ClientCallbacks_OnDeathFieldStopShrink )
+				callback( deathFieldData )
+
+			lastEndTime = (startTime + duration)
+		}
+
+		int idealIdx
+		if ( radius <= 1500 )
+		{
+			idealIdx = 2
+		}
+		else if ( radius <= 17000 )
+		{
+			idealIdx = 1
+		}
+		else
+		{
+			idealIdx = 0
+		}
+
+		if ( idealIdx != currentEffectIdx )
+		{
+			currentEffectIdx = idealIdx
+			EffectStop( e["fx"], true, true )
+			effectID = fxIdx[ currentEffectIdx ]
+			ringFX = StartParticleEffectOnEntity( deathField, effectID, FX_PATTACH_ABSORIGIN_FOLLOW, -1 )
+			e["fx"] = ringFX
+		}
+
+		entity player        = GetLocalViewPlayer()
+		vector fwdToPlayer   = Normalize( <player.GetOrigin().x, player.GetOrigin().y, 0> - <deathField.GetOrigin().x, deathField.GetOrigin().y, 0> )
+		vector circleEdgePos = deathField.GetOrigin() + (fwdToPlayer * radius)
+		circleEdgePos.z = player.EyePosition().z
+
+		if ( PositionIsInMapBounds( circleEdgePos ) )
+		{
+			deathfieldSoundEnt.SetOrigin( circleEdgePos )
+			string soundToPlay = GetCircleSoundForSize( radius )
+
+			//
+			//
+			//
+
+			bool moving = unclampedFrac == frac
+
+			if ( moving )
+				soundToPlay = soundToPlay + "_Movement"
+
+			if ( (!moving || currentSoundPlaying == "" || wasMoving != moving) && currentSoundPlaying != soundToPlay )
+			{
+				//
+				if ( currentSoundPlaying != "" )
+					StopSoundOnEntity( deathfieldSoundEnt, currentSoundPlaying )
+				if ( soundToPlay != "" )
+					EmitSoundOnEntity( deathfieldSoundEnt, soundToPlay )
+
+				currentSoundPlaying = soundToPlay
+				wasMoving = moving
+			}
+		}
+
+		Minimap_SetDeathFieldRadius( radius )
+		FullMap_SetDeathFieldRadius( radius )
+		EffectSetControlPointVector( e["fx"], 1, <radius, 0, 0> )
+		WaitFrame()
+	}
+}
+
+string function GetCircleSoundForSize( float radius )
+{
+	foreach ( distance, sound in distanceToSound )
+	{
+		if ( distance < radius )
+		{
+			return sound
+		}
+	}
+
+	return ""
+}
+
+void function ServerCallback_Survival_PathfinderSurveyNotifications( entity beacon, int notificationNumber )
+{
+	switch ( notificationNumber )
+	{
+		case ePathfinderNotifications.TEAM_SUCCESS:
+			//
+			foreach ( beaconEnt, rui in file.pathfinderWorldIcons )
+			{
+				if ( beaconEnt == beacon )
+					RuiDestroyIfAlive( rui )
+			}
+			break
+
+		case ePathfinderNotifications.NOT_PATHFINDER:
+			AddPlayerHint( 1.25, 0.25, $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", "#SURVEY_NOT_PATHFINDER" )
+			break
+
+		case ePathfinderNotifications.ALREADY_ACTIVE:
+			AddPlayerHint( 1.25, 0.25, $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", "#SURVEY_ALREADY_ACTIVE" )
+			break
+
+		case ePathfinderNotifications.ALREADY_USED:
+			AddPlayerHint( 1.25, 0.25, $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", "#SURVEY_ALREADY_USED" )
+			break
+	}
+}
+void function ServerCallback_Survival_CreateBeaconWorldIcon( entity beacon, entity minimapObj )
+{
+	switch ( minimapObj.GetTargetName() )
+	{
+		case "SurveyBeacon":
+			if ( beacon in file.pathfinderWorldIcons )
+				return
+			file.pathfinderWorldIcons[beacon] <- SurveyBeacon_CreateHUDMarker( $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", minimapObj )
+			break
+	}
+}
+
+var function SurveyBeacon_CreateHUDMarker( asset beaconImage, entity minimapObj )
+{
+	entity localViewPlayer = GetLocalViewPlayer()
+	vector pos             = minimapObj.GetOrigin() + (minimapObj.GetUpVector() * 96)
+	var rui                = CreateCockpitRui( $"ui/survey_beacon_marker_icon.rpak", RuiCalculateDistanceSortKey( localViewPlayer.EyePosition(), pos ) )
+	RuiSetImage( rui, "beaconImage", beaconImage )
+	RuiSetGameTime( rui, "startTime", Time() )
+	RuiSetFloat3( rui, "pos", pos )
+	RuiKeepSortKeyUpdated( rui, true, "pos" )
+	return rui
+}
+#endif //
+
+int function SURVIVAL_GetCurrentDeathFieldStage()
+{
+	return GetGlobalNetInt( "currentDeathFieldStage" )
+}
+
+
+string function SURVIVAL_GetCurrentRoundString()
+{
+	int curStage = SURVIVAL_GetCurrentDeathFieldStage()
+
+	//
+	//
+	if ( SURVIVAL_IsFinalDeathFieldStage() )
+		return FINAL_ROUND_ALIAS_SUFFIX
+	else
+		return string( curStage + 1 )
+
+	unreachable
+}
+
+
+bool function SURVIVAL_IsFinalDeathFieldStage()
+{
+	int curStage = SURVIVAL_GetCurrentDeathFieldStage()
+
+	return (curStage >= file.deathFieldStages.len() - 1)
+}
+
+
+void function AddCallback_OnSurvivalDeathFieldStageChanged( void functionref( int stage, float nextCircleStartTime ) callback )
+{
+	Assert( !file.onSurvivalDeathFieldStageChangedCallbacks.contains( callback ), "Tried to add a callback that was already added" )
+
+	file.onSurvivalDeathFieldStageChangedCallbacks.append( callback )
+}
+
+
+void function RemoveCallback_OnSurvivalDeathFieldStageChanged( void functionref( int stage, float nextCircleStartTime ) callback )
+{
+	Assert( file.onSurvivalDeathFieldStageChangedCallbacks.contains( callback ), "Tried to remove a callback that was not added" )
+
+	file.onSurvivalDeathFieldStageChangedCallbacks.fastremovebyvalue( callback )
+}
+
+
+bool function SURVIVAL_DeathFieldIsValid()
+{
+	return IsValid( file.deathField )
+}
+
+
+vector function SURVIVAL_GetDeathFieldCenter()
+{
+	#if(false)
+
+#endif
+
+	if ( IsValid( file.deathField ) )
+		return file.deathField.GetOrigin()
+	else
+		return <0, 0, 0>
+
+	unreachable
+}
+
+
+float function SURVIVAL_GetDeathFieldCurrentRadius()
+{
+	#if(CLIENT)
+		float startRadius = file.deathFieldData.currentRadius
+
+		int i = SURVIVAL_GetCurrentDeathFieldStage()
+
+		if ( i == -1 )
+			return startRadius
+
+		float startTime = GetGlobalNetTime( "nextCircleStartTime" ) + MARGIN_WAIT_TIME
+		DeathFieldStageData data = file.deathFieldStages[i]
+		if ( i > 0 )
+		{
+			DeathFieldStageData prevData = file.deathFieldStages[i - 1]
+			startRadius = prevData.endRadius
+		}
+
+		float duration = data.shrinkDuration
+		float endRadius = data.endRadius
+
+		float frac = (Time() - startTime) / duration
+		frac = clamp( frac, 0.0, 1.0 )
+		return startRadius + ((endRadius - startRadius) * frac)
+	#endif
+
+	#if(false)
+
+#endif
+}
+
+
+bool function SurveyBeacon_CanUseFunction( entity player, entity beacon )
+{
+	if ( GetGameState() < eGameState.Playing )
+		return false
+
+	if ( !PlayerHasPassive( player, ePassives.PAS_PATHFINDER ) )
+	{
+		#if(CLIENT)
+			ShowSurveyBeaconTeamHint( player )
+		#endif //
+
+		return false
+	}
+
+	bool canUse = ControlPanel_CanUseFunction( player, beacon )
+	if ( canUse && HasActiveSurveyZone( player ) )
+	{
+		#if(CLIENT)
+			AddPlayerHint( 0.1, 0, $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", "#SURVEY_ALREADY_ACTIVE" )
+		#endif //
+		return false
+	}
+
+	return canUse
+}
+
+#if(CLIENT)
+entity function GetTeamSurveyBeaconUser( int team )
+{
+	array<entity> teamArray = GetPlayerArrayOfTeam_AliveConnected( team )
+	foreach( teamMember in teamArray )
+	{
+		if ( PlayerHasPassive( teamMember, ePassives.PAS_PATHFINDER ) )
+			return teamMember
+	}
+	return null
+}
+
+
+void function ShowSurveyBeaconTeamHint( entity player )
+{
+	entity beaconUser = GetTeamSurveyBeaconUser( player.GetTeam() )
+	if ( !IsValid( beaconUser ) )
+		return
+
+	if ( HasActiveSurveyZone( beaconUser ) )
+		AddPlayerHint( 0.1, 0, $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", "#SURVEY_ALREADY_ACTIVE" )
+	else
+		AddPlayerHint( 0.1, 0, $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder", "#SURVEY_TEAM_MESSAGE" )
+}
+#endif //
+
+bool function HasActiveSurveyZone( entity player )
+{
+	foreach( surveyZone in file.surveyMinimapEnts )
+	{
+		if ( surveyZone.GetOwner() == player )
+		{
+			return true
+		}
+	}
+	return false
+}
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+#if(CLIENT)
+void function TrackDeathfieldDistance( entity cockpit, entity player )
+{
+	thread TrackDeathfieldDistance_Internal( cockpit, player )
+}
+
+
+void function TrackDeathfieldDistance_Internal( entity cockpit, entity player )
+{
+	player.EndSignal( "OnDestroy" )
+	cockpit.EndSignal( "OnDestroy" )
+
+	bool wasShowingDeathFieldFx = false
+	int screenFx
+
+	OnThreadEnd(
+		function() : ( screenFx, player )
+		{
+			//
+			ColorCorrection_SetWeight( file.colorCorrection, 0.0 )
+			Chroma_EnteredRing()
+
+			if ( EffectDoesExist( screenFx ) )
+			{
+				EffectStop( screenFx, true, true )
+			}
+		}
+	)
+
+	ColorCorrection_SetExclusive( file.colorCorrection, true )
+
+	while ( 1 )
+	{
+		bool shouldShowDeathFieldFx = ShouldShowDeathFieldEffects( player ) //
+
+		if ( wasShowingDeathFieldFx != shouldShowDeathFieldFx )
+		{
+			if ( shouldShowDeathFieldFx )
+			{
+				Callback_OnPlayerEnteredDeathfield( player )
+
+				if ( !EffectDoesExist( screenFx ) )
+				{
+					screenFx = StartParticleEffectOnEntity( cockpit, GetParticleSystemIndex( DEATHFIELD_EFFECT ), FX_PATTACH_ABSORIGIN_FOLLOW, -1 )
+					EffectSetIsWithCockpit( screenFx, true )
+				}
+
+				ColorCorrection_SetWeight( file.colorCorrection, 1.0 )
+
+				Chroma_LeftRing()
+			}
+			else
+			{
+				Callback_OnPlayerLeftDeathfield( player )
+
+				if ( EffectDoesExist( screenFx ) )
+				{
+					EffectStop( screenFx, true, true )
+				}
+
+				ColorCorrection_SetWeight( file.colorCorrection, 0.0 )
+
+				Chroma_EnteredRing()
+			}
+			wasShowingDeathFieldFx = shouldShowDeathFieldFx
+		}
+
+		WaitFrame()
+	}
+}
+
+
+bool function ShouldShowDeathFieldEffects( entity player )
+{
+	bool shouldShow = true
+
+	if ( DeathField_PointDistanceFromFrontier( player.GetOrigin() ) >= 0 )
+		shouldShow = false
+
+	if ( !IsAlive( player ) )
+		shouldShow = false
+
+	if ( IsViewingSquadSummary() )
+		shouldShow = false
+
+	return shouldShow
+}
+
+
+void function Callback_OnPlayerEnteredDeathfield( entity player )
+{
+	//
+	printt( "Callback_OnPlayerEnteredDeathfield" )
+}
+
+
+void function Callback_OnPlayerLeftDeathfield( entity player )
+{
+	//
+	printt( "Callback_OnPlayerLeftDeathfield" )
+}
+
+
+void function Callback_OnPlayerTakeOutOfBoundDamage( float damage, vector damageOrigin, int damageType, int damageSourceId, entity attacker )
+{
+	thread DisplayHolsterWeaponHint()
+}
+
+
+void function DisplayHolsterWeaponHint()
+{
+	const HINT_DURATION = 5.0
+	const HINT_FADEOUT = 0.5
+	const HINT_FIRST_DELAY = 3.0
+	const HINT_INTERVAL_TIME = HINT_DURATION + 10.0
+
+	if ( Time() - file.nextHolsterHintTime < HINT_INTERVAL_TIME )
+		return
+
+	entity viewPlayer = GetLocalViewPlayer()
+
+	entity activeWeapon = viewPlayer.GetActiveWeapon( eActiveInventorySlot.mainHand )
+	if ( activeWeapon == viewPlayer.GetNormalWeapon( WEAPON_INVENTORY_SLOT_PRIMARY_2 ) )
+		return
+
+	if ( DeathField_PointDistanceFromFrontier( viewPlayer.GetOrigin() ) > 0 )
+		return
+
+	AddPlayerHint( HINT_DURATION, HINT_FADEOUT, $"", "#HINT_HOLSTER_WEAPON" )
+	file.nextHolsterHintTime = Time() + HINT_INTERVAL_TIME
+}
+
+#endif
+
+
+entity function SURVIVAL_GetDeathField()
+{
+	return file.deathField
+}

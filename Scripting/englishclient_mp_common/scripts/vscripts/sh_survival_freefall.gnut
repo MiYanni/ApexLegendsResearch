@@ -1,0 +1,1720 @@
+global function SurvivalFreefall_Init
+global function CodeCallback_PlayerFreefallBegin
+global function CodeCallback_PlayerFreefallEnd
+global function CodeCallback_PlayerFreefallMove
+global function CodeCallback_PlayerFreefallAnticipateBegin
+global function CodeCallback_PlayerFreefallAnticipateEnd
+
+const asset PLAYER_WIND_FX 	= $"P_wind_cruising"
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+#endif //
+
+	const float MIN_GLIDE_ANGLE_NORMAL = 35
+	const float MIN_GLIDE_ANGLE_SLOWZONE = 35
+	const float MIN_GLIDE_ANGLE_SPEED = -10
+	const float MAX_GLIDE_ANGLE = 90
+	const float GLIDE_ANGLE_CHANGE_RATE_MIN = 1.8
+	const float GLIDE_ANGLE_CHANGE_RATE_MAX = 3.0
+
+#if(true)
+	global const float SKYDIVE_SLOWDOWN_DIST_FROM_GROUND = 3000.0
+	global const float SKYDIVE_SLOWDOWN_DIST_FROM_GROUND_UNDO = SKYDIVE_SLOWDOWN_DIST_FROM_GROUND + 1000.0
+	global const float SKYDIVE_SLOWDOWN_DIST_FROM_WALL = 1200.0
+	global const float SKYDIVE_SLOWDOWN_DIST_FROM_HOVER_TANK = 600.0
+
+	const float SKYDIVE_FINISHED_DIST_FROM_GROUND = 512.0
+	const float SKYDIVE_JETWASH_DIST_FROM_GROUND = 700.0
+	const float SKYDIVE_JETWASH_FREQUENCY = 0.1
+
+	const float MOVEMENT_SPEED_SLOWZONE = 250
+	const float MOVEMENT_SPEED_MIN = 500
+	const float MOVEMENT_SPEED_DEFAULT = 800
+	const float MOVEMENT_SPEED_MAX = 1400
+	const float MOVEMENT_SPEED_MAX_GLIDE = 1200
+	const float MOVEMENT_SPEED_START = 1200
+	const float MOVEMENT_SPEED_FOLLOW_MODE_MULT = 1.5
+	const float MOVEMENT_SPEED_ACCEL = 60.0
+	const float MOVEMENT_SPEED_DECEL_MIN = 10.0
+	const float MOVEMENT_SPEED_DECEL_MAX = 40.0
+#else
+//
+
+//
+
+
+//
+
+
+
+
+//
+
+
+
+//
+
+
+
+
+#endif //
+
+	const float ROTATION_MATCH_VIEW_GAIN_COEF_MIN = -1 //
+	const float ROTATION_MATCH_VIEW_GAIN_COEF_MAX = -10
+
+	const float STRAFE_SPEED = 15.0
+	const float STRAFE_SPEED_SLOWZONE = 25.0
+	const float STRAFE_ANGLE_MAX = MIN_GLIDE_ANGLE_NORMAL
+	const float SLOW_ZONE_FORWARD_STRAFE_SPEED = 100.0
+	const float SLOW_ZONE_DEBOUNCE_TIME = 2.0
+
+	const float SKYDIVE_THIRD_PERSON_START_DIST = -50.0
+	const float SKYDIVE_THIRD_PERSON_START_HEIGHT = 30.0
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+#if(CLIENT)
+	global function SetSkydiveStartingConvars
+	global function PlayerFreefallActiveChanged
+	global function ServerCallback_Mirage_DecoysDeployed
+	global function SkydiveFreelookActiveChanged
+	global function SkydiveFollowPlayerChanged
+
+	const float SKYDIVE_THIRD_PERSON_PLANE_ORBIT_DIST = 8000.0
+	const float SKYDIVE_THIRD_PERSON_NORMAL_DIST = 120.0
+	const float SKYDIVE_THIRD_PERSON_SLOW_DIST = 70.0
+	const float SKYDIVE_THIRD_PERSON_FAST_DIST = 230.0
+	const float SKYDIVE_THIRD_PERSON_SLOW_SPEED_VIEW = 500.0
+	const float SKYDIVE_THIRD_PERSON_FAST_SPEED_VIEW = 1200.0
+	const float SKYDIVE_THIRD_PERSON_SLOW_SPEED_SHAKE = 750.0
+	const float SKYDIVE_THIRD_PERSON_FAST_SPEED_SHAKE = 1100.0
+	const float SKYDIVE_THIRD_PERSON_SLOW_SPEED_RUMBLE = 1000.0
+	const float SKYDIVE_THIRD_PERSON_FAST_SPEED_RUMBLE = 1380.0
+	const float SKYDIVE_THIRD_PERSON_PLANE_ORBIT_HEIGHT = -1500.0
+	const float SKYDIVE_THIRD_PERSON_NORMAL_HEIGHT = 20.0
+	const float SKYDIVE_VIEW_LERP_DURATION_START = 2.3
+
+	const float SKYDIVE_CONTRAIL_SPEED_MIN = 600.0 //
+	const float SKYDIVE_CONTRAIL_SPEED_MAX = 1400.0
+
+	const float UNFOLLOW_HOLD_DURATION = 0.3
+
+	const CONTRAIL_FX = $"P_surv_team_jet_contrail"//
+
+	struct
+	{
+		var skydiveRui
+		array<string> contrailAttachments = ["l_hand", "r_hand"]//
+	} file
+#endif //
+
+void function SurvivalFreefall_Init()
+{
+	#if(false)
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+	RegisterSignal( "FreefallEnded" )
+	#if(CLIENT)
+		RegisterSignal( "FreefallStarted" )
+		RegisterSignal( "LerpCameraDistOverTime" )
+		RegisterSignal( "LerpCameraHeightOverTime" )
+		RegisterSignal( "WaitForUnfollow" )
+
+		PrecacheParticleSystem( CONTRAIL_FX )
+	#endif
+}
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+//
+
+
+
+
+
+
+
+
+
+
+
+//
+
+//
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+
+
+
+
+
+//
+//
+//
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+//
+
+
+
+
+
+
+
+//
+//
+//
+
+//
+
+
+
+
+
+
+
+
+//
+//
+//
+
+//
+
+
+//
+
+
+
+
+
+//
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+//
+//
+//
+
+
+
+
+
+
+
+//
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+//
+//
+
+
+
+
+
+//
+//
+//
+
+
+
+
+//
+
+
+
+//
+
+
+
+
+
+
+//
+
+//
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+
+/*
+
+
+
+
+
+
+*/
+
+
+#if(CLIENT)
+
+void function SetSkydiveStartingConvars()
+{
+	SetConVarInt( "c_thirdpersonshoulderdist", 0 )
+	SetConVarFloat( "c_thirdpersonshoulderaimdist", SKYDIVE_THIRD_PERSON_START_DIST )
+	SetConVarFloat( "c_thirdpersonshoulderheight", SKYDIVE_THIRD_PERSON_START_HEIGHT )
+	SetConVarInt( "c_thirdpersonshoulderoffset", 0 )
+	SetConVarFloat( "c_thirdpersonshoulderoffset", 0.0 )
+	SetConVarFloat( "cam_ideallag", 0.0 )
+	SetConVarFloat( "c_mindistance", 0.0 )
+	SetConVarFloat( "c_maxdistance", 0.0 )
+	SetConVarFloat( "cam_idealdist", 0.0 )
+	SetConVarToDefault( "cam_player_viewheight_scale" )
+	SetConVarToDefault( "c_thirdpersonshouldergetsviewpunch" )
+	SetConVarToDefault( "cam_pitchlock_on" )
+	SetConVarToDefault( "c_minyaw" )
+	SetConVarToDefault( "c_maxyaw" )
+
+	entity player = GetLocalViewPlayer()
+	if ( !IsValid( player ) )
+		return
+
+	if ( player.GetTrackEntityDistanceMode() == "scriptOffsetClientOnly" )
+	{
+		player.SetTrackEntityOffsetDistance( SKYDIVE_THIRD_PERSON_START_DIST )
+		player.SetTrackEntityOffsetHeight( SKYDIVE_THIRD_PERSON_START_HEIGHT )
+	}
+}
+
+void function PlayerFreefallActiveChanged( entity player, bool oldValue, bool isFreefallActive, bool actuallyChanged )
+{
+
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	Rumble_Play( "skydive_jump", {} )
+
+	//
+	if ( isFreefallActive && file.skydiveRui == null )
+	{
+		file.skydiveRui = CreatePermanentCockpitRui( $"ui/skydive_ui.rpak" )
+		RuiTrackFloat3( file.skydiveRui, "playerPos", player, RUI_TRACK_ABSORIGIN_FOLLOW )
+		RuiSetFloat( file.skydiveRui, "minSpeed", GetDisplaySpeed( MOVEMENT_SPEED_MIN * 0.95 ) )
+		RuiSetFloat( file.skydiveRui, "maxSpeed", GetDisplaySpeed( MOVEMENT_SPEED_MAX ) )
+		if ( PlayerHasPassive( player, ePassives.PAS_MIRAGE ) )
+			RuiSetBool( file.skydiveRui, "decoysAvailable", true )
+	}
+	else if ( file.skydiveRui != null )
+	{
+		RuiDestroyIfAlive( file.skydiveRui )
+		file.skydiveRui = null
+	}
+
+	//
+	if ( isFreefallActive )
+	{
+		SetSkydiveStartingConvars()
+		Signal( player, "FreefallStarted" )
+		thread ScreenEffectsWhileFalling( player )
+		thread UpdateFlightDisplay( player )
+		thread StopFollowExtendedUse( player )
+		if ( player.GetTrackEntityDistanceMode() == "scriptOffsetClientOnly" )
+		{
+			thread LerpCameraDistOverTime( player, SKYDIVE_THIRD_PERSON_NORMAL_DIST, SKYDIVE_VIEW_LERP_DURATION_START, Tween_QuadEaseInOut )
+			thread LerpCameraHeightOverTime( player, SKYDIVE_THIRD_PERSON_NORMAL_HEIGHT, SKYDIVE_VIEW_LERP_DURATION_START * 0.75, Tween_ExpoEaseOut )
+		}
+	}
+	else
+	{
+		Signal( player, "FreefallEnded" )
+	}
+}
+
+void function ServerCallback_Mirage_DecoysDeployed( bool active )
+{
+	if ( file.skydiveRui != null )
+		RuiSetBool( file.skydiveRui, "decoysAvailable", false )
+}
+
+void function SkydiveFreelookActiveChanged( entity player, bool old, bool new, bool actuallyChanged )
+{
+	if ( file.skydiveRui != null )
+		RuiSetBool( file.skydiveRui, "freelookActive", new )
+}
+
+void function SkydiveFollowPlayerChanged( entity player, entity oldEnt, entity newEnt, bool actuallyChanged )
+{
+	if ( file.skydiveRui == null )
+		return
+
+	vector squadLeaderColor = <0, 0, 0>
+	if ( IsValid( newEnt ) && newEnt.IsPlayer() )
+	{
+		RuiSetString( file.skydiveRui, "followPlayerName", newEnt.GetPlayerName() )
+		squadLeaderColor = GetKeyColor( COLORID_MEMBER_COLOR0, newEnt.GetTeamMemberIndex() )
+		RuiSetFloat3( file.skydiveRui, "squadLeaderColor", SrgbToLinear( squadLeaderColor / 255.0 ) )
+		RuiSetBool( file.skydiveRui, "showUnfollowHint", true )
+		thread WaitForUnfollow( player )
+	}
+	else
+	{
+		RuiSetString( file.skydiveRui, "followPlayerName", "" )
+		RuiSetFloat3( file.skydiveRui, "squadLeaderColor", squadLeaderColor )
+		RuiSetBool( file.skydiveRui, "showUnfollowHint", false )
+	}
+}
+
+void function WaitForUnfollow( entity player )
+{
+	Signal( player, "WaitForUnfollow" )
+	EndSignal( player, "WaitForUnfollow" )
+	EndSignal( player, "OnDeath" )
+	EndSignal( player, "OnDestroy" )
+	EndSignal( player, "FreefallEnded" )
+
+	if ( player.IsBot() )
+		return
+
+	while( true )
+	{
+		if ( file.skydiveRui != null )
+		{
+			if ( player.IsInputCommandHeld( IN_USE_LONG ) )
+			{
+				float endTime = Time() + UNFOLLOW_HOLD_DURATION
+				RuiSetGameTime( file.skydiveRui, "unfollowStartTime", Time() )
+				RuiSetGameTime( file.skydiveRui, "unfollowEndTime", endTime )
+				while ( file.skydiveRui != null && player.IsInputCommandHeld( IN_USE_LONG ) )
+				{
+					if ( Time() >= endTime )
+					{
+						player.ClientCommand( "StopFreefallFollowMode" )
+						return
+					}
+					WaitFrame()
+				}
+			}
+			else
+			{
+				RuiSetGameTime( file.skydiveRui, "unfollowStartTime", Time() + 9999.0 )
+				RuiSetGameTime( file.skydiveRui, "unfollowEndTime", Time() + 9999.0 + UNFOLLOW_HOLD_DURATION )
+			}
+		}
+
+		WaitFrame()
+	}
+}
+
+void function UpdateFlightDisplay( entity player )
+{
+	EndSignal( player, "OnDeath" )
+	EndSignal( player, "OnDestroy" )
+	EndSignal( player, "FreefallEnded" )
+	EndSignal( player, "FreefallStarted" )
+
+	float groundHeight
+	float smoothedGroundHeight = -1
+	float speed = MOVEMENT_SPEED_DEFAULT
+	float smoothedSpeed = MOVEMENT_SPEED_DEFAULT
+	float frameTime = Time()
+	float lastFrameTime = Time()
+	float dt
+	vector lastPos = player.GetOrigin()
+	array<float> prevSpeeds
+	bool followMode = false
+
+	while( true )
+	{
+		frameTime = Time()
+		dt = frameTime - lastFrameTime
+
+		TraceResults result = TraceLine( player.GetOrigin(), player.GetOrigin() + <0,0,-64000>, [ player ], TRACE_MASK_SOLID, TRACE_COLLISION_GROUP_NONE )
+		groundHeight = result.endPos.z
+		if ( groundHeight > smoothedGroundHeight )
+			smoothedGroundHeight = min( smoothedGroundHeight + 2500.0 * dt, groundHeight )
+		if ( groundHeight < smoothedGroundHeight )
+			smoothedGroundHeight = max( smoothedGroundHeight - 2500.0 * dt, groundHeight )
+		RuiSetFloat( file.skydiveRui, "groundHeight", smoothedGroundHeight )
+
+		followMode = IsValid( player.GetParent() )
+		if ( followMode )
+			speed = fabs( Distance( lastPos, player.GetOrigin() ) ) / Clamp( FrameTime(), 0.001, 1.0 ) //
+		else
+			speed = player.GetVelocity().Length()
+
+		if ( speed > smoothedSpeed )
+			smoothedSpeed = min( smoothedSpeed + 500.0 * dt, speed )
+		if ( speed < smoothedSpeed )
+			smoothedSpeed = max( smoothedSpeed - 500.0 * dt, speed )
+
+		prevSpeeds.insert( 0, smoothedSpeed )
+		while( prevSpeeds.len() > 10 )
+			prevSpeeds.pop()
+
+		if ( followMode )
+			smoothedSpeed = GetAverageValueInArray( prevSpeeds )
+
+		RuiSetFloat( file.skydiveRui, "speed", GetDisplaySpeed( smoothedSpeed ) )
+
+		lastFrameTime = frameTime
+		lastPos = player.GetOrigin()
+
+		WaitFrame()
+	}
+}
+
+float function GetDisplaySpeed( float speed )
+{
+	return speed * 0.0568182 * 2.0
+}
+
+void function ScreenEffectsWhileFalling( entity player )
+{
+	EndSignal( player, "OnDeath" )
+	EndSignal( player, "OnDestroy" )
+	EndSignal( player, "FreefallEnded" )
+	EndSignal( player, "FreefallStarted" )
+
+	float startTime = Time()
+
+	while( IsValid( player ) )
+	{
+		float speed = player.GetVelocity().Length()
+		float elapsedTime = Time() - startTime
+		if ( speed > 0 )
+		{
+			if ( elapsedTime > SKYDIVE_VIEW_LERP_DURATION_START && player.GetTrackEntityDistanceMode() == "scriptOffsetClientOnly" )
+			{
+				float cameraDist = GraphCapped( speed, SKYDIVE_THIRD_PERSON_SLOW_SPEED_VIEW, SKYDIVE_THIRD_PERSON_FAST_SPEED_VIEW, SKYDIVE_THIRD_PERSON_SLOW_DIST, SKYDIVE_THIRD_PERSON_FAST_DIST )
+				thread LerpCameraDistOverTime( player, cameraDist, 0.4, Tween_Linear )
+			}
+
+			float amplitude = GraphCapped( speed, SKYDIVE_THIRD_PERSON_SLOW_SPEED_SHAKE, SKYDIVE_THIRD_PERSON_FAST_SPEED_SHAKE, 0.15, 1.0 )
+			ClientScreenShake( amplitude, 1, 1.0, <0,0,0> )
+
+			int rumbleIndex = int( GraphCapped( speed, SKYDIVE_THIRD_PERSON_SLOW_SPEED_RUMBLE, SKYDIVE_THIRD_PERSON_FAST_SPEED_RUMBLE, 0.0, 7.0 ) )
+			Rumble_Play( "skydive_speed_" + rumbleIndex, {} )
+		}
+		wait 0.1
+	}
+}
+
+void function LerpCameraDistOverTime( entity player, float dist, float lerpDuration, float functionref( float ) tweenFunc )
+{
+	Signal( player, "LerpCameraDistOverTime" )
+	EndSignal( player, "LerpCameraDistOverTime" )
+	EndSignal( player, "FreefallEnded" )
+	EndSignal( player, "FreefallStarted" )
+	EndSignal( player, "OnDeath" )
+	EndSignal( player, "OnDestroy" )
+
+	float startTime = Time()
+	float endTime = startTime + lerpDuration
+	float startValue = player.GetTrackEntityOffsetDistance()
+	if ( startValue == dist )
+		return
+
+	while( Time() <= endTime )
+	{
+		float frac = GraphCapped( Time(), startTime, endTime, 0.0, 1.0 )
+		float tweenFrac = tweenFunc( frac )
+		float value = GraphCapped( tweenFrac, 0.0, 1.0, startValue, dist )
+		player.SetTrackEntityOffsetDistance( value )
+		WaitFrame()
+	}
+	player.SetTrackEntityOffsetDistance( dist )
+}
+
+void function LerpCameraHeightOverTime( entity player, float dist, float lerpDuration, float functionref( float ) tweenFunc )
+{
+	Signal( player, "LerpCameraHeightOverTime" )
+	EndSignal( player, "LerpCameraHeightOverTime" )
+	EndSignal( player, "FreefallEnded" )
+	EndSignal( player, "FreefallStarted" )
+	EndSignal( player, "OnDeath" )
+	EndSignal( player, "OnDestroy" )
+
+	float startTime = Time()
+	float endTime = startTime + lerpDuration
+	float startValue = player.GetTrackEntityOffsetHeight()
+	if ( startValue == dist )
+		return
+
+	while( Time() <= endTime )
+	{
+		float frac = GraphCapped( Time(), startTime, endTime, 0.0, 1.0 )
+		float tweenFrac = tweenFunc( frac )
+		float value = GraphCapped( tweenFrac, 0.0, 1.0, startValue, dist )
+		player.SetTrackEntityOffsetHeight( value )
+		WaitFrame()
+	}
+	player.SetTrackEntityOffsetHeight( dist )
+}
+
+void function StopFollowExtendedUse( entity player )
+{
+	/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
+}
+
+#endif //
+
+void function CodeCallback_PlayerFreefallBegin( entity player )
+{
+#if(false)
+//
+
+//
+
+
+
+
+
+#else
+	//
+
+	if ( IsLocalViewPlayer( player ) )
+	{
+		int fxID = GetParticleSystemIndex( PLAYER_WIND_FX )
+		int attachID = player.LookupAttachment( "REF" )
+		player.p.freefallWindEffectHandle = StartParticleEffectOnEntityWithPos( player, fxID, FX_PATTACH_POINT_FOLLOW_NOROTATE, attachID, <0,0,0>, VectorToAngles( <0,0,-1> ) )
+
+		foreach( string attachment in file.contrailAttachments )
+		{
+			int handle = StartParticleEffectOnEntity( player, GetParticleSystemIndex( CONTRAIL_FX ), FX_PATTACH_POINT_FOLLOW_NOROTATE, player.LookupAttachment( attachment ) )
+			EffectSetControlPointVector( handle, 2, < 0, 0, 0 > )
+			player.p.freefallContrailFXHandles.append( handle )
+		}
+	}
+#endif
+}
+
+void function CodeCallback_PlayerFreefallEnd( entity player )
+{
+#if(false)
+//
+
+
+
+
+
+
+
+#else
+	//
+
+	foreach( int handle in player.p.freefallContrailFXHandles )
+	{
+		if ( EffectDoesExist( handle ) )
+		{
+			EffectStop( handle, true, false )
+		}
+	}
+	player.p.freefallContrailFXHandles.clear()
+
+	if ( EffectDoesExist( player.p.freefallWindEffectHandle ) )
+	{
+		EffectStop( player.p.freefallWindEffectHandle, true, false )
+	}
+	player.p.freefallWindEffectHandle = -1
+#endif
+}
+
+void function CodeCallback_PlayerFreefallMove( entity player )
+{
+#if(false)
+//
+
+//
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#else
+	//
+
+	float elapsedTime = Time() - player.Player_GetFreefallStartTime()
+	if ( elapsedTime >= 2.0 )
+	{
+		float speed = player.GetVelocity().Length()
+		float alpha = GraphCapped( speed, SKYDIVE_CONTRAIL_SPEED_MIN, SKYDIVE_CONTRAIL_SPEED_MAX, 0.0, 1.0 )
+		foreach ( int handle in player.p.freefallContrailFXHandles )
+		{
+			if ( EffectDoesExist( handle ) )
+			{
+				EffectSetControlPointVector( handle, 2, < alpha, 0, 0 > )
+			}
+		}
+	}
+#endif
+}
+
+void function CodeCallback_PlayerFreefallAnticipateBegin( entity player )
+{
+#if(false)
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+#else
+	//
+#endif
+}
+
+void function CodeCallback_PlayerFreefallAnticipateEnd( entity player )
+{
+#if(false)
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+#else
+	//
+#endif
+}

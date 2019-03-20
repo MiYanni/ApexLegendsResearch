@@ -1,0 +1,53 @@
+global function ObjectiveResourceSystem_Init
+
+#if(false)
+
+#endif //
+
+
+#if(false)
+
+//
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+
+void function ObjectiveResourceSystem_Init()
+{
+#if(false)
+
+
+
+
+
+
+#endif //
+
+#if(false)
+
+#endif //
+}
+
+
+

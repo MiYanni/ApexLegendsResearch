@@ -1,0 +1,171 @@
+global function Ultimates_RegisterNetworking
+
+#if(false)
+
+
+
+#endif //
+
+#if(CLIENT)
+global function SCB_OnUltimateReady
+#endif //
+
+
+const string FUNCNAME_OnUltimateReady = "SCB_OnUltimateReady"
+void function Ultimates_RegisterNetworking()
+{
+	Remote_RegisterClientFunction( FUNCNAME_OnUltimateReady )
+}
+
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+
+#if(CLIENT)
+void function SCB_OnUltimateReady()
+{
+	entity player = GetLocalViewPlayer()
+	if ( !IsAlive( player ) )
+		return
+
+	entity ultimateAbility = player.GetOffhandWeapon( OFFHAND_INVENTORY )
+	if ( !IsValid( ultimateAbility ) )
+		return
+
+	string readySound = ultimateAbility.GetWeaponSettingString( eWeaponVar.sound_weapon_ready )
+	if ( readySound == "" )
+		readySound = "survival_ui_ultimate_ready"
+	asset icon = ultimateAbility.GetWeaponSettingAsset( eWeaponVar.hud_icon )
+	string details = IsControllerModeActive() ? "Press %offhand1% + %ping%" : "Press %offhand4%"
+	AnnouncementMessageSweep( player, "Ultimate is Ready", details, <255,135,10>, icon, readySound, 3.0 )
+}
+#endif //

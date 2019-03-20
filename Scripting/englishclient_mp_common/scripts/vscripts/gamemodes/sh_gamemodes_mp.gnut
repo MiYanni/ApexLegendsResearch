@@ -1,0 +1,53 @@
+
+global function GameModes_Init_SV_CL
+
+void function GameModes_Init_SV_CL()
+{
+	string gameMode
+
+	gameMode = TEAM_DEATHMATCH
+	#if(false)
+
+
+
+#endif
+	#if(!UI)
+		GameMode_SetScoreCompareFunc( gameMode, CompareKills )
+		GameMode_AddSharedInit( gameMode, GamemodeTdmShared_Init )
+	#endif
+
+	gameMode = SURVIVAL
+#if(false)
+
+
+
+
+#elseif(CLIENT)
+	GameMode_AddClientInit( gameMode, ClGamemodeSurvival_Init )
+#endif
+#if(!UI)
+	GameMode_SetScoreCompareFunc( gameMode, CompareAssaultScore )
+	GameMode_AddSharedInit( gameMode, GamemodeSurvivalShared_Init )
+#endif
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif //
+
+	#if(false)
+
+#endif
+
+}

@@ -1,0 +1,577 @@
+//
+
+#if CLIENT || UI 
+global function PassivesShared_Init
+#endif
+
+
+#if(CLIENT)
+global function PlayerHasPassive
+global function AddCallback_OnPassiveChanged
+global function RemoveCallback_OnPassiveChanged
+#endif
+
+#if(false)
+
+
+
+#endif
+
+#if CLIENT && DEV 
+global function DEV_PrintAllPassives
+#endif
+
+
+//
+#if(CLIENT)
+global function PlayerHasStealthMovement
+#endif
+
+#if(false)
+
+#endif
+
+
+//
+#if(CLIENT)
+global function ClientCodeCallback_OnPassiveChanged
+#endif
+
+
+
+//
+//
+//
+//
+//
+#if CLIENT || UI 
+global enum ePassives
+{
+	INVALID = -1,
+
+	//
+	PAS_ADRENALINE,
+	PAS_ADS_SHIELD,
+	PAS_FAST_HEAL,
+	PAS_GAS_GEAR,
+	PAS_GAS_PROTECTION,
+	PAS_MEDIC,
+	PAS_MIRAGE,
+	PAS_PATHFINDER,
+	PAS_STARTER_PACK,
+	PAS_TRACKING_VISION,
+	PAS_VOICES,
+	PAS_OCTANE,
+
+	#if(false)
+
+
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+#endif //
+	#if(false)
+
+
+#endif //
+
+	//
+	//
+	//
+
+	PAS_DOWN_HEALTH,
+	PAS_DOWN_REGEN,
+	PAS_EXEC_BONUS_AMMO,
+	PAS_EXEC_BONUS_ARMOR,
+	PAS_EXEC_BONUS_HEALTH,
+	PAS_EXEC_BONUS_ULT,
+	PAS_HEALTH_BONUS_ALL,
+	PAS_HEALTH_BONUS_MED,
+	PAS_REDUCED_COOLDOWNS_TAC_ULT,
+	PAS_REDUCED_COOLDOWN_TAC,
+	PAS_REDUCED_COOLDOWN_ULT,
+	PAS_SELF_REVIVE,
+	PAS_SYRINGE_BONUS,
+
+
+	_count,
+}
+#endif
+
+
+#if CLIENT || UI 
+global const table<int, string> PASSIVE_NAME_MAP = {
+	[ePassives.PAS_REDUCED_COOLDOWNS_TAC_ULT] = "#PAS_COMBINED_COOLDOWN",
+	[ePassives.PAS_EXEC_BONUS_ARMOR] = "#PAS_EXEC_BONUS_ARMOR",
+	[ePassives.PAS_SELF_REVIVE] = "#PAS_AVAT",
+	[ePassives.PAS_FAST_HEAL] = "#PAS_FAST_HEAL",
+
+}
+global const table<int, string> PASSIVE_DESCRIPTION_SHORT_MAP = {
+	[ePassives.PAS_REDUCED_COOLDOWNS_TAC_ULT] = "#PAS_COMBINED_COOLDOWN_DESC",
+	[ePassives.PAS_EXEC_BONUS_ARMOR] = "#PAS_EXEC_BONUS_ARMOR_DESC",
+	[ePassives.PAS_SELF_REVIVE] = "#PAS_AVAT_DESC",
+	[ePassives.PAS_FAST_HEAL] = "#PAS_FAST_HEAL_DESC",
+}
+#endif
+
+
+
+//
+//
+//
+//
+//
+struct
+{
+	#if(CLIENT)
+		table<int, array<void functionref( entity, int, bool, bool )> > passiveChangedCallbackListMap
+	#endif
+} file
+
+
+
+//
+//
+//
+//
+//
+#if CLIENT || UI 
+void function PassivesShared_Init()
+{
+	#if(CLIENT)
+		for ( int passiveIdx = 0; passiveIdx < ePassives._count; passiveIdx++ )
+			file.passiveChangedCallbackListMap[ passiveIdx ] <- []
+	#endif
+
+	#if(false)
+//
+//
+//
+
+
+
+
+
+
+
+
+
+#endif
+
+	#if(CLIENT)
+		PrecacheParticleSystem( $"P_core_DMG_boost_screen" )
+	#endif
+}
+#endif
+
+
+
+//
+//
+//
+//
+//
+#if(false)
+
+
+
+
+//
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(false)
+
+
+
+
+//
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(false)
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(CLIENT)
+bool function PlayerHasPassive( entity player, int passive )
+{
+	return player.HasPassive( passive )
+}
+#endif
+
+
+#if(CLIENT)
+bool function PlayerHasStealthMovement( entity player )
+{
+	#if(false)
+
+
+#endif
+	return false
+}
+#endif
+
+
+#if(CLIENT)
+void function AddCallback_OnPassiveChanged( int passive, void functionref( entity, int, bool, bool ) callback )
+{
+	Assert( !file.passiveChangedCallbackListMap[ passive ].contains( callback ), "Tried to add a callback that was already added" )
+	file.passiveChangedCallbackListMap[ passive ].append( callback )
+}
+void function RemoveCallback_OnPassiveChanged( int passive, void functionref( entity, int, bool, bool ) callback )
+{
+	Assert( file.passiveChangedCallbackListMap[ passive ].contains( callback ), "Tried to remove a callback that was not added" )
+	file.passiveChangedCallbackListMap[ passive ].fastremovebyvalue( callback )
+}
+#endif
+
+
+
+//
+//
+//
+//
+//
+#if CLIENT && DEV 
+void function DEV_PrintAllPassives( entity player )
+{
+	for ( int passiveIdx = 0; passiveIdx < ePassives._count; passiveIdx++ )
+	{
+		if ( player.HasPassive( passiveIdx ) )
+			printt( "Player " + player + " has passive: " + DEV_GetEnumStringSafe( "ePassives", passiveIdx ) )
+	}
+}
+#endif
+
+
+
+//
+//
+//
+//
+//
+#if(CLIENT)
+void function ClientCodeCallback_OnPassiveChanged( entity player, int passiveIdx )
+{
+	if ( !IsValid( player ) )
+		return
+
+	bool nowHasPassive  = player.HasPassive( passiveIdx )
+	bool didHavePassive = !nowHasPassive //
+
+	foreach( callback in file.passiveChangedCallbackListMap[passiveIdx] )
+		callback( player, passiveIdx, didHavePassive, nowHasPassive )
+}
+#endif
+
+
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
+
+#if(false)
+
+
+
+
+//
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+//
+
+
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+
+//
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(false)
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+#if(false)
+
+
+//
+
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+#if(false)
+
+
+//
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+#if(false)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
